@@ -32,6 +32,39 @@ var npc0Look;
 var npc0Grounded;
 var npc0Crouch;
 
+var npc1;
+var npc1X;
+var npc1Y;
+var npc1Width;
+var npc1Height;
+var npc1Speed;
+var npc1JumpForce;
+var npc1Look;
+var npc1Grounded;
+var npc1Crouch;
+
+var npc2;
+var npc2X;
+var npc2Y;
+var npc2Width;
+var npc2Height;
+var npc2Speed;
+var npc2JumpForce;
+var npc2Look;
+var npc2Grounded;
+var npc2Crouch;
+
+var npc3;
+var npc3X;
+var npc3Y;
+var npc3Width;
+var npc3Height;
+var npc3Speed;
+var npc3JumpForce;
+var npc3Look;
+var npc3Grounded;
+var npc3Crouch;
+
 var plat;
 var plat0;
 var plat0X;
@@ -54,12 +87,182 @@ var bulletHeight;
 var bulletExists;
 var bulletSpeed;
 
-function drawPlat(platX,platY,plat0Width,plat0Height){
-plat=canvas.getContext("2d");
-plat.fillStyle="green";
-	plat.fillRect(platX,platY,plat0Width,plat0Height);
+var p1Image;
+var npc0Image;
+var npc1Image;
+var npc2Image;
+var npc3Image;
+var gun0Image;
+
+// NPC Class definition
+class NPC {
+    constructor(type, x, y) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.width = 22;
+        this.height = 44;
+        this.speed = 5;
+        this.jumpForce = 80;
+        this.look = 0;
+        this.grounded = false;
+        this.crouch = false;
+        this.ctx = canvas.getContext("2d");
+        this.image = new Image();
+        this.loadImage();
+    }
+
+    loadImage() {
+        switch(this.type) {
+            case 'water':
+                this.image.src = 'pngs/npcwater0.png';
+                break;
+            case 'fire':
+                this.image.src = 'pngs/npcfire0.png';
+                break;
+            case 'regular':
+                this.image.src = 'pngs/npc0.png';
+                break;
+            case 'sk':
+                this.image.src = 'pngs/sk0.png';
+                break;
+        }
+    }
+
+    draw() {
+        this.ctx = canvas.getContext("2d");
+        let imagePath = '';
+        
+        switch(this.type) {
+            case 'water':
+                if(this.look == 0) imagePath = 'pngs/npcwater0.png';
+                else if(this.look == 1) imagePath = 'pngs/npcwater1.png';
+                else if(this.look == 2) imagePath = 'pngs/npcwater2.png';
+                else if(this.look == 3) imagePath = 'pngs/npcwater3.png';
+                else if(this.look == 4) imagePath = 'pngs/npcwater4.png';
+                else if(this.look == 5) imagePath = 'pngs/npcwater5.png';
+                break;
+            case 'fire':
+                if(this.look == 0) imagePath = 'pngs/npcfire0.png';
+                else if(this.look == 1) imagePath = 'pngs/npcfire1.png';
+                else if(this.look == 2) imagePath = 'pngs/npcfire2.png';
+                else if(this.look == 3) imagePath = 'pngs/npcfire3.png';
+                else if(this.look == 4) imagePath = 'pngs/npcfire4.png';
+                else if(this.look == 5) imagePath = 'pngs/npcfire5.png';
+                break;
+            case 'regular':
+                if(this.look == 0) imagePath = 'pngs/npc0.png';
+                else if(this.look == 1) imagePath = 'pngs/npc1.png';
+                else if(this.look == 2) imagePath = 'pngs/npc2.png';
+                else if(this.look == 3) imagePath = 'pngs/npc3.png';
+                else if(this.look == 4) imagePath = 'pngs/npc4.png';
+                else if(this.look == 5) imagePath = 'pngs/npc5.png';
+                break;
+            case 'sk':
+                if(this.look == 0) imagePath = 'pngs/sk0.png';
+                else if(this.look == 1) imagePath = 'pngs/sk1.png';
+                else if(this.look == 2) imagePath = 'pngs/sk2.png';
+                else if(this.look == 3) imagePath = 'pngs/sk3.png';
+                else if(this.look == 4) imagePath = 'pngs/sk4.png';
+                else if(this.look == 5) imagePath = 'pngs/sk5.png';
+                break;
+        }
+
+        if (imagePath) {
+            this.image.src = imagePath;
+            this.ctx.drawImage(this.image, this.x, this.y);
+        }
+    }
+
+    erase() {
+        this.ctx.fillStyle = canvasColor;
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    moveLeft() {
+        this.x -= this.speed;
+        this.look = 2;
+    }
+
+    moveRight() {
+        this.x += this.speed;
+        this.look = 1;
+    }
+
+    jump() {
+        if (this.grounded) {
+            this.y -= this.jumpForce;
+            this.look = 0;
+            this.grounded = false;
+        }
+    }
+
+    addGravity() {
+        if (!this.grounded) {
+            this.y += gravity;
+        }
+    }
+
+    checkGrounding() {
+        if (this.y + this.height >= canvasHeight - groundHeight) {
+            this.y = canvasHeight - this.height - groundHeight;
+            this.grounded = true;
+        } else if (this.y + this.height < canvasHeight - groundHeight) {
+            if (this.x + this.width > plat0X && this.x < plat0X + plat0Width && 
+                this.y + this.height > plat0Y && this.y + this.height < plat0Y + plat0Height) {
+                this.grounded = true;
+            } else if (this.x + this.width > p1X && this.x < p1X + p1Width && 
+                      this.y + this.height > p1Y && this.y + this.height < p1Y + p1Height) {
+                this.grounded = true;
+            } else {
+                this.grounded = false;
+            }
+        }
+    }
+
+    checkLimits() {
+        if (this.x + this.width > canvasWidth) {
+            this.x = canvasWidth - this.width;
+        }
+        if (this.x < 0) {
+            this.x = 0;
+        }
+    }
+
+    update() {
+        // Apply gravity first
+        this.addGravity();
+        
+        // Check grounding after gravity
+        this.checkGrounding();
+        
+        // Check movement limits
+        this.checkLimits();
+        
+        // Random movement
+        const actionRange = 100;
+        const actionFactor = 100;
+        const movementRange = 1;
+        const input = Math.floor(Math.random() * actionRange);
+
+        if (input % actionFactor == 0) {
+            for (let i = 0; i < movementRange; i++) {
+                this.moveRight();
+            }
+        }
+        if (input % actionFactor == 1) {
+            for (let i = 0; i < movementRange; i++) {
+                this.moveLeft();
+            }
+        }
+        if (input % actionFactor == 3 && this.grounded) {
+            this.jump();
+        }
+    }
 }
 
+// NPC instances
+var npcs = [];
 
 var wPress;
 var sPress;
@@ -69,14 +272,29 @@ var jPress;
 var kPress;
 var lPress;
 
-
-
 function finit(){
 	document.getElementById("d1").innerHTML="calling finit()";
 	
 	canvas=document.getElementById("canvas1");
 	
-
+	// Preload images
+	p1Image = new Image();
+	p1Image.src = 'pngs/clerk0.png';
+	
+	npc0Image = new Image();
+	npc0Image.src = 'pngs/npcwater0.png';
+	
+	npc1Image = new Image();
+	npc1Image.src = 'pngs/npcfire0.png';
+	
+	npc2Image = new Image();
+	npc2Image.src = 'pngs/npc0.png';
+	
+	npc3Image = new Image();
+	npc3Image.src = 'pngs/sk0.png';
+	
+	gun0Image = new Image();
+	gun0Image.src = 'pngs/gun0.png';
 	
 	canvasWidth=document.getElementById("canvas1").width;
 	canvasHeight=document.getElementById("canvas1").height;
@@ -100,15 +318,13 @@ function finit(){
 	p1Crouch=false;
 	p1Speed=5;
 
-	npc0Width=22;//20
-	npc0Height=44;//40
-	npc0=canvas.getContext("2d");
-	npc0X=100;
-	npc0Y=100;
-	npc0Look=0;
-	npc0JumpForce=80;
-	npc0Crouch=false;
-	npc0Speed=5;
+	// Initialize NPCs
+	npcs = [
+		new NPC('water', 100, 100),
+		new NPC('fire', 200, 100),
+		new NPC('regular', 300, 100),
+		new NPC('sk', 400, 100)
+	];
 	
 	plat = canvas.getContext("2d"); //this is called in drawPlat()
 	plat0X = 90;//canvasWidth/2-canvasWidth/8;
@@ -149,38 +365,81 @@ function finit(){
     //context.drawImage(image, 0, 0,10, 10)
 
 	drawP1();
-	drawnpc0();
 	drawPlat(plat0X,plat0Y,plat0Width,plat0Height);
 }
 
 
 function f2(){
-
-setInterval(function(){
-	
-	   //time Counter
-	   timeCounter++;
-	   if(timeCounter%frameMultiplyer==0){
-		updateSky();
-		drawP1();
-		drawGround();
-		drawnpc0();
-		drawPlat(plat0X,plat0Y,plat0Width,plat0Height);
-	}
-	   document.getElementById("timeCounter").innerHTML=aPress+sPress+dPress+wPress//timeCounter;
-	   document.getElementById("d2").innerHTML=timeCounter;
-	   document.getElementById("d3").innerHTML=p1X;
-	   document.getElementById("d4").innerHTML=p1Y;
-	   document.getElementById("d5").innerHTML=gun0X;
-	   document.getElementById("d6").innerHTML=gun0Y;
-	   document.getElementById("d7").innerHTML=p1Look;
-		drawGround();
-		p1Control();
-		npc0Control();
-		bulletControl();
-
-},1000/fps);
-	
+    setInterval(function(){
+        timeCounter++;
+        
+        // Clear canvas and update sky
+        updateSky();
+        
+        // Update physics and positions
+        p1Control();
+        
+        // Update NPCs
+        npcs.forEach(npc => {
+            // Apply gravity
+            if (!npc.grounded) {
+                npc.y += gravity;
+            }
+            
+            // Check grounding
+            if (npc.y + npc.height >= canvasHeight - groundHeight) {
+                npc.y = canvasHeight - npc.height - groundHeight;
+                npc.grounded = true;
+            } else if (npc.y + npc.height < canvasHeight - groundHeight) {
+                if (npc.x + npc.width > plat0X && npc.x < plat0X + plat0Width && 
+                    npc.y + npc.height > plat0Y && npc.y + npc.height < plat0Y + plat0Height) {
+                    npc.grounded = true;
+                } else {
+                    npc.grounded = false;
+                }
+            }
+            
+            // Random movement
+            const input = Math.floor(Math.random() * 100);
+            if (input === 0) {
+                npc.x += npc.speed;
+                npc.look = 1;
+            }
+            if (input === 1) {
+                npc.x -= npc.speed;
+                npc.look = 2;
+            }
+            if (input === 3 && npc.grounded) {
+                npc.y -= npc.jumpForce;
+                npc.look = 0;
+                npc.grounded = false;
+            }
+            
+            // Check screen limits
+            if (npc.x + npc.width > canvasWidth) {
+                npc.x = canvasWidth - npc.width;
+            }
+            if (npc.x < 0) {
+                npc.x = 0;
+            }
+        });
+        
+        // Draw everything
+        drawPlat(plat0X, plat0Y, plat0Width, plat0Height);
+        drawGround();
+        drawP1();
+        npcs.forEach(npc => npc.draw());
+        bulletControl();
+        
+        // Update UI
+        document.getElementById("timeCounter").innerHTML = aPress + sPress + dPress + wPress;
+        document.getElementById("d2").innerHTML = timeCounter;
+        document.getElementById("d3").innerHTML = p1X;
+        document.getElementById("d4").innerHTML = p1Y;
+        document.getElementById("d5").innerHTML = gun0X;
+        document.getElementById("d6").innerHTML = gun0Y;
+        document.getElementById("d7").innerHTML = p1Look;
+    }, 1000/fps);
 }
 function p1Control(){ 
 	if(wPress==true)
@@ -287,28 +546,24 @@ function checkPlayerLimits(){
 	}
 }
 function drawP1(){
-	//p1.fillStyle=p1Col;
-	//p1.fillRect(p1X,p1Y,pWidth,pHeight);
-	img0 = new Image();   
+	p1=canvas.getContext("2d");
 	if(p1Look==0){
-		img0.src = 'pngs/clerk0.png';
+		p1Image.src = 'pngs/clerk0.png';
 	}  else if(p1Look==1){
-		img0.src = 'pngs/clerk1.png';
+		p1Image.src = 'pngs/clerk1.png';
 	}else if(p1Look==2){
-		img0.src = 'pngs/sk2.png';
+		p1Image.src = 'pngs/clerk2.png';
 	}else if (p1Look==3) {
-		img0.src = 'pngs/npcfire3.png';
+		p1Image.src = 'pngs/clerk3.png';
 	}else if (p1Look==4) {
-		img0.src = 'pngs/npcfire4.png';
+		p1Image.src = 'pngs/clerk4.png';
 	}
 	else if (p1Look==5) {
-		img0.src = 'pngs/npcfire5.png';
+		p1Image.src = 'pngs/clerk5.png';
 	}
-  	
-  	img0.onload = function(){
-    p1.drawImage(img0,p1X,p1Y);
-  }
-  drawGun0();
+	
+	p1.drawImage(p1Image, p1X, p1Y);
+	drawGun0();
 }
 function eraseP1(){
 	p1.fillStyle=canvasColor;
@@ -343,89 +598,23 @@ function moveP1Right(){
 //________________________________________________________NPC0
   
 
-function npc0Control(){ 
-	var npc0actionrange =100;
-	var npc0actionfactor=100 ;//bigger number less decisions
-	var npc0MovementRange=1;
-	npc0input=Math.floor(Math.random() * npc0actionrange);
-	if(npc0input%npc0actionfactor==0){
-		for(let i=0;i<npc0MovementRange;i++){
-			npc0Look=1;
-		movenpc0Right();
-	}
-	}
-	if(npc0input%npc0actionfactor==1){
-		for(let i=0;i<npc0MovementRange;i++){
-			movenpc0Left();
-			npc0Look=2;
-		}
-		
-	}
-	if(npc0input%npc0actionfactor==3 && npc0Grounded){
-		npc0Jump();
-		npc0Look=0;
-	}
-	
-	checknpc0Grounding();
-	//addnpc0Gravity();
-	checknpc0Limits();
-	if(npc0Grounded==true){
-		document.getElementById("info3").innerHTML="npc0 grounded";
-	}else{
-		erasenpc0();
-		document.getElementById("info3").innerHTML="npc0 not grounded";
-		addnpc0Gravity();
-		drawnpc0();
-	}
-	}
-
-
-function addnpc0Gravity(){
-	erasenpc0();
-	npc0Y=npc0Y+gravity;
-	drawnpc0();
-	}
-	
-function checknpc0Grounding(){
-	if (npc0Y+npc0Height>=canvasHeight-groundHeight){//is npc0Y etc lower than ground or ground level
-		npc0Y=canvasHeight-npc0Height-groundHeight;
-		npc0Grounded=true;
-	}else if(npc0Y+npc0Height<canvasHeight-groundHeight){ //is npc0Y etc higher than ground
-		if(npc0X+npc0Width>plat0X && npc0X<plat0X+plat0Width && npc0Y+npc0Height>plat0Y &&npc0Y+npc0Height<plat0Y+plat0Height){//is npc0 inside plat0--
-		npc0Grounded=true;
-		}else if(npc0X+npc0Width>p1X && npc0X<p1X+p1Width && npc0Y+npc0Height>p1Y &&npc0Y+npc0Height<p1Y+p1Height){//is npc0 inside P1--
-			npc0Grounded=true;
-		}else npc0Grounded=false;
-	}
-	}
-	function checknpc0Limits(){
-		if (npc0X+npc0Width>canvasWidth){
-			npc0X=canvasWidth-npc0Width;
-		}
-		if (npc0X<0){
-			npc0X=0;
-		}
-	}
 function drawnpc0(){
-	//p1.fillStyle=p1Col;
-	//p1.fillRect(p1X,p1Y,pWidth,pHeight);
-	img1 = new Image();   
+	npc0=canvas.getContext("2d");
 	if(npc0Look==0){
-		img1.src = 'pngs/npcwater0.png';
+		npc0Image.src = 'pngs/npcwater0.png';
 	}  else if(npc0Look==1){
-		img1.src = 'pngs/npcwater1.png';
+		npc0Image.src = 'pngs/npcwater1.png';
 	}else if(npc0Look==2){
-		img1.src = 'pngs/npcwater2.png';
+		npc0Image.src = 'pngs/npcwater2.png';
 	}else if (npc0Look==3) {
-		img1.src = 'pngs/npc3.png';
+		npc0Image.src = 'pngs/npc3.png';
 	}else if (npc0Look==4) {
-		img1.src = 'pngs/npc4.png';
+		npc0Image.src = 'pngs/npc4.png';
 	}else if (npc0Look==5) {
-		img1.src = 'pngs/npc5.png';
+		npc0Image.src = 'pngs/npc5.png';
 	}
-  	img1.onload = function(){
-	npc0.drawImage(img1,npc0X,npc0Y);
-  }
+	
+	npc0.drawImage(npc0Image, npc0X, npc0Y);
 }
 function erasenpc0(){
 	npc0.fillStyle=canvasColor;
@@ -461,30 +650,29 @@ function movenpc0Right(){
 }
 //________________________________________________________gun
 function drawGun0(){
+	gun0=canvas.getContext("2d");
 	gun0Y=p1Y+(p1Height/2);
-	img3 = new Image();   
 	if(p1Look==0){
-		img3.src = 'pngs/gun0.png';
+		gun0Image.src = 'pngs/gun0.png';
 		gun0X=p1X+p1Width;
 	}  else if(p1Look==1){
-		img3.src = 'pngs/sniper1.png';
+		gun0Image.src = 'pngs/sniper1.png';
 		gun0X=p1X;
 	}else if(p1Look==2){
-		img3.src = 'pngs/sniper2.png';
+		gun0Image.src = 'pngs/sniper2.png';
 		gun0X=p1X-gun0Width;
 	}else if (p1Look==3) {
-		img3.src = 'pngs/gun0.png';
+		gun0Image.src = 'pngs/gun0.png';
 		gun0X=p1X+p1Width;
 	}else if (p1Look==4) {
-		img3.src = 'pngs/sniper1.png';
+		gun0Image.src = 'pngs/sniper1.png';
 		gun0X=p1X+p1Width/3;
 	}else if (p1Look==5) {
-		img3.src = 'pngs/sniper2.png';
+		gun0Image.src = 'pngs/sniper2.png';
 		gun0X=p1X-gun0Width;
 	}
-	img3.onload = function(){
-		gun0.drawImage(img3,gun0X,gun0Y);
-	  }
+	
+	gun0.drawImage(gun0Image, gun0X, gun0Y);
 }
 //________________________________________________________bullet
 //1 y 4 right, 2 y 5 left
@@ -549,7 +737,6 @@ function updateSky(){
 	sky=canvas.getContext("2d");
 	sky.fillStyle=canvasColor;
 	sky.fillRect(0,0,canvasWidth,canvasHeight);
-	drawPlat(plat0X,plat0Y,plat0Width,plat0Height);
 }
 
 function fReset(){
@@ -584,6 +771,69 @@ if(x=="j"||x=="J"){jPress=false;}
 if(x=="k"||x=="K"){kPress=false;}
 if(x=="l"||x=="L"){lPress=false;}
 },false);
+
+function drawnpc1(){
+	npc1=canvas.getContext("2d");
+	if(npc1Look==0){
+		npc1Image.src = 'pngs/npcfire0.png';
+	}  else if(npc1Look==1){
+		npc1Image.src = 'pngs/npcfire1.png';
+	}else if(npc1Look==2){
+		npc1Image.src = 'pngs/npcfire2.png';
+	}else if (npc1Look==3) {
+		npc1Image.src = 'pngs/npcfire3.png';
+	}else if (npc1Look==4) {
+		npc1Image.src = 'pngs/npcfire4.png';
+	}else if (npc1Look==5) {
+		npc1Image.src = 'pngs/npcfire5.png';
+	}
+	
+	npc1.drawImage(npc1Image, npc1X, npc1Y);
+}
+
+function drawnpc2(){
+	npc2=canvas.getContext("2d");
+	if(npc2Look==0){
+		npc2Image.src = 'pngs/npc0.png';
+	}  else if(npc2Look==1){
+		npc2Image.src = 'pngs/npc1.png';
+	}else if(npc2Look==2){
+		npc2Image.src = 'pngs/npc2.png';
+	}else if (npc2Look==3) {
+		npc2Image.src = 'pngs/npc3.png';
+	}else if (npc2Look==4) {
+		npc2Image.src = 'pngs/npc4.png';
+	}else if (npc2Look==5) {
+		npc2Image.src = 'pngs/npc5.png';
+	}
+	
+	npc2.drawImage(npc2Image, npc2X, npc2Y);
+}
+
+function drawnpc3(){
+	npc3=canvas.getContext("2d");
+	if(npc3Look==0){
+		npc3Image.src = 'pngs/sk0.png';
+	}  else if(npc3Look==1){
+		npc3Image.src = 'pngs/sk1.png';
+	}else if(npc3Look==2){
+		npc3Image.src = 'pngs/sk2.png';
+	}else if (npc3Look==3) {
+		npc3Image.src = 'pngs/sk3.png';
+	}else if (npc3Look==4) {
+		npc3Image.src = 'pngs/sk4.png';
+	}else if (npc3Look==5) {
+		npc3Image.src = 'pngs/sk5.png';
+	}
+	
+	npc3.drawImage(npc3Image, npc3X, npc3Y);
+}
+
+function drawPlat(platX, platY, plat0Width, plat0Height) {
+    plat = canvas.getContext("2d");
+    plat.fillStyle = "green";
+    plat.fillRect(platX, platY, plat0Width, plat0Height);
+}
 
 
 

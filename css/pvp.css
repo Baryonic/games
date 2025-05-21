@@ -1,13 +1,95 @@
+body{
+    background-color: #002a00 ;
+    color: #B5C7FF;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 #canvas1{
-	background-color:black;
-	
+	background-color: #141;
+    width: 90vw;
+    height: 60vh;
+    display: block;
+    margin: 20px auto;
 }
-#d2{
-    float:left;
+.game-info {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    width: 90vw;
 }
-#d4{
-    float:left;
+
+.score-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #141;
+    padding: 10px 20px;
+    border-radius: 5px;
 }
-#d5{
-    float:left;
+
+.total-goals {
+    display: flex;
+    gap: 20px;
+    margin: 10px 0;
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.total-goals div {
+    padding: 5px 10px;
+    border-radius: 5px;
+    background-color: #141;
+}
+
+#p1TotalGoals {
+    color: #00FFF2;
+}
+
+#p2TotalGoals {
+    color: #FF4BBC;
+}
+
+.controls-section {
+    display: flex;
+    gap: 20px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.control-item {
+    background-color: #141;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.player-inputs {
+    display: flex;
+    gap: 20px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.player-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #141;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+#d2, #d4 {
+    float: none;
+}
+
+#d3, #d5 {
+    float: none;
 }
