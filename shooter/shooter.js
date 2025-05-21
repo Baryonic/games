@@ -109,6 +109,8 @@ class NPC {
         this.crouch = false;
         this.ctx = canvas.getContext("2d");
         this.image = new Image();
+        this.health = 100;
+        this.isAlive = true;
         this.loadImage();
     }
 
@@ -272,6 +274,89 @@ var jPress;
 var kPress;
 var lPress;
 
+// Add player health
+var p1Health = 100;
+
+// Bullet Class
+class Bullet {
+    constructor(x, y, direction) {
+        this.x = x;
+        this.y = y;
+        this.width = 5;
+        this.height = 2;
+        this.speed = 15;
+        this.direction = direction; // 0 for up, 1 for right, 2 for left
+        this.exists = true;
+        this.ctx = canvas.getContext("2d");
+    }
+
+    draw() {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    erase() {
+        this.ctx.fillStyle = canvasColor;
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    move() {
+        this.erase();
+        switch(this.direction) {
+            case 0: // Up
+                this.y -= this.speed;
+                break;
+            case 1: // Right
+                this.x += this.speed;
+                break;
+            case 2: // Left
+                this.x -= this.speed;
+                break;
+        }
+        this.draw();
+    }
+
+    checkCollision() {
+        // Check if bullet is out of bounds
+        if (this.x < 0 || this.x > canvasWidth || this.y < 0 || this.y > canvasHeight) {
+            this.exists = false;
+            return;
+        }
+
+        // Check collision with NPCs
+        npcs.forEach((npc, index) => {
+            if (npc.isAlive && 
+                this.x + this.width > npc.x && 
+                this.x < npc.x + npc.width &&
+                this.y + this.height > npc.y && 
+                this.y < npc.y + npc.height) {
+                
+                // NPC takes damage
+                npc.health -= 50;
+                
+                // Check if NPC dies
+                if (npc.health <= 0) {
+                    npc.isAlive = false;
+                    npcs.splice(index, 1);
+                }
+                
+                // Bullet disappears after hit
+                this.exists = false;
+            }
+        });
+    }
+
+    update() {
+        if (this.exists) {
+            this.move();
+            this.checkCollision();
+        }
+    }
+}
+
+// Array to store active bullets
+var bullets = [];
+
 function finit(){
 	document.getElementById("d1").innerHTML="calling finit()";
 	
@@ -318,6 +403,9 @@ function finit(){
 	p1Crouch=false;
 	p1Speed=5;
 
+	// Initialize player health
+	p1Health = 100;
+	
 	// Initialize NPCs
 	npcs = [
 		new NPC('water', 100, 100),
@@ -366,6 +454,9 @@ function finit(){
 
 	drawP1();
 	drawPlat(plat0X,plat0Y,plat0Width,plat0Height);
+
+    // Initialize bullets array
+    bullets = [];
 }
 
 
@@ -381,6 +472,8 @@ function f2(){
         
         // Update NPCs
         npcs.forEach(npc => {
+            if (!npc.isAlive) return; // Skip dead NPCs
+            
             // Apply gravity
             if (!npc.grounded) {
                 npc.y += gravity;
@@ -428,7 +521,16 @@ function f2(){
         drawPlat(plat0X, plat0Y, plat0Width, plat0Height);
         drawGround();
         drawP1();
-        npcs.forEach(npc => npc.draw());
+        npcs.forEach(npc => {
+            if (npc.isAlive) {
+                npc.draw();
+                // Draw health bar for each NPC
+                npc.ctx.fillStyle = "red";
+                npc.ctx.fillRect(npc.x, npc.y - 10, (npc.width * npc.health) / 100, 5);
+            }
+        });
+        
+        // Update and draw bullets
         bulletControl();
         
         // Update UI
@@ -564,6 +666,10 @@ function drawP1(){
 	
 	p1.drawImage(p1Image, p1X, p1Y);
 	drawGun0();
+	
+	// Draw health bar
+	p1.fillStyle = "red";
+	p1.fillRect(p1X, p1Y - 10, (p1Width * p1Health) / 100, 5);
 }
 function eraseP1(){
 	p1.fillStyle=canvasColor;
@@ -685,49 +791,42 @@ function eraseBullet(){
 	bullet.fillStyle=canvasColor;
 	bullet.fillRect(bulletX,bulletY,bulletWidth,bulletHeight);
 }
-function fire(){
-	document.getElementById("info2").innerHTML="fire";
-	if (p1Look==1||p1Look==4){
-		bulletLook==1;
-	}
-	if (p1Look==2||p1Look==5){
-		bulletLook==2;
-	}
-	bulletExists=true;
-	bulletX=gun0X;
-	bulletY=gun0Y;
+function fire() {
+    let direction;
+    switch(p1Look) {
+        case 0: // Looking up
+            direction = 0;
+            break;
+        case 1:
+        case 4: // Looking right
+            direction = 1;
+            break;
+        case 2:
+        case 5: // Looking left
+            direction = 2;
+            break;
+        default:
+            direction = 1; // Default to right
+    }
+    
+    // Adjust bullet position based on direction
+    let bulletX = gun0X;
+    let bulletY = gun0Y;
+    
+    if (direction === 0) { // Up
+        bulletX = p1X + (p1Width / 2) - 2.5; // Center the bullet
+        bulletY = p1Y; // Start from top of player
+    }
+    
+    const bullet = new Bullet(bulletX, bulletY, direction);
+    bullets.push(bullet);
 }
 function bulletControl(){
-	if (bulletExists==true){
-		bulletTravel();
-	}else{
-		document.getElementById("info2").innerHTML="bullet not existing";
-	}
-}
-function bulletTravel(){
-	if (bulletX<0||bulletX>canvasWidth){
-		bulletExists=false;
-		document.getElementById("info2").innerHTML="bullet stopped existing";
-	} else {
-		if(bulletLook==1){
-			moveBulletRight();
-			document.getElementById("info3").innerHTML=bulletX;
-		}
-		if(bulletLook==2){
-			moveBulletLeft();
-			document.getElementById("info3").innerHTML=bulletX;
-		}
-	}
-}
-function moveBulletLeft(){
-	eraseBullet();
-	bulletX=bulletX-bulletSpeed;
-	drawBullet();
-}
-function moveBulletRight(){
-	eraseBullet();
-	bulletX=bulletX+bulletSpeed;
-	drawBullet();
+    // Update all bullets
+    bullets = bullets.filter(bullet => {
+        bullet.update();
+        return bullet.exists;
+    });
 }
 
 

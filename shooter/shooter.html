@@ -19,15 +19,45 @@
 <div id="info2">info2</div><br>
 <div id="info3">info3</div><br>
 <div>inputs</div><div id="timeCounter"></div><br>
-<button onclick="f2()">f2</button>
-<div ><p><b>CONTROLS</b></p></div>
-<div>player 1: W Z (up), S(down)</div>
-<div>player 2: O (up), L(down)</div>
-<div>G (f1)-> test function (draw elements, etc)</div>
-<div>H  (f2)-> Start Game</div>
-<div>T (fReset)-> Restarts Game</div>
-<div>controls</div>
-<div>controls</div>
+<button onclick="f2()">Start Game</button>
+
+<div class="game-info">
+    <h2>Game Controls</h2>
+    <div class="controls-section">
+        <h3>Movement Controls</h3>
+        <ul>
+            <li>W or Z - Jump</li>
+            <li>A or Q - Move Left</li>
+            <li>D - Move Right</li>
+            <li>S - Crouch</li>
+        </ul>
+    </div>
+
+    <div class="controls-section">
+        <h3>Combat Controls</h3>
+        <ul>
+            <li>K - Shoot</li>
+        </ul>
+    </div>
+
+    <div class="controls-section">
+        <h3>Game Controls</h3>
+        <ul>
+            <li>H - Start Game</li>
+            <li>T - Reset Game</li>
+        </ul>
+    </div>
+
+    <div class="game-mechanics">
+        <h3>Game Mechanics</h3>
+        <ul>
+            <li>Health: Both player and NPCs have 100 HP</li>
+            <li>Damage: Each bullet hit deals 50 damage</li>
+            <li>Health Bars: Red bars above characters show current health</li>
+            <li>NPCs: Will be removed when defeated</li>
+        </ul>
+    </div>
+</div>
 
 </body>
 </html>
