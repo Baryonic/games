@@ -94,6 +94,80 @@ var npc2Image;
 var npc3Image;
 var gun0Image;
 
+// Add game state variables
+var gameOver = false;
+var gameStarted = false;
+
+// FireBall Class
+class FireBall {
+    constructor(x, y, targetX, targetY) {
+        this.x = x;
+        this.y = y;
+        this.width = 10;
+        this.height = 10;
+        this.speed = 8;
+        this.exists = true;
+        this.ctx = canvas.getContext("2d");
+        
+        // Calculate direction vector
+        const dx = targetX - x;
+        const dy = targetY - y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        this.dx = (dx / length) * this.speed;
+        this.dy = (dy / length) * this.speed;
+    }
+
+    draw() {
+        this.ctx.fillStyle = "orange";
+        this.ctx.beginPath();
+        this.ctx.arc(this.x, this.y, this.width/2, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    erase() {
+        this.ctx.fillStyle = canvasColor;
+        this.ctx.fillRect(this.x - this.width/2, this.y - this.height/2, this.width, this.height);
+    }
+
+    move() {
+        this.erase();
+        this.x += this.dx;
+        this.y += this.dy;
+        this.draw();
+    }
+
+    checkCollision() {
+        // Check if fireball is out of bounds
+        if (this.x < 0 || this.x > canvasWidth || this.y < 0 || this.y > canvasHeight) {
+            this.exists = false;
+            return;
+        }
+
+        // Check collision with player
+        if (this.x + this.width/2 > p1X && 
+            this.x - this.width/2 < p1X + p1Width &&
+            this.y + this.height/2 > p1Y && 
+            this.y - this.height/2 < p1Y + p1Height) {
+            
+            // Player takes damage
+            p1Health -= 20;
+            
+            // Fireball disappears after hit
+            this.exists = false;
+        }
+    }
+
+    update() {
+        if (this.exists) {
+            this.move();
+            this.checkCollision();
+        }
+    }
+}
+
+// Array to store active fireballs
+var fireballs = [];
+
 // NPC Class definition
 class NPC {
     constructor(type, x, y) {
@@ -111,6 +185,8 @@ class NPC {
         this.image = new Image();
         this.health = 100;
         this.isAlive = true;
+        this.lastShot = 0; // Track last shot time
+        this.shootCooldown = 2000; // 2 seconds between shots
         this.loadImage();
     }
 
@@ -231,7 +307,23 @@ class NPC {
         }
     }
 
+    shoot() {
+        const now = Date.now();
+        if (this.type === 'fire' && now - this.lastShot >= this.shootCooldown) {
+            const fireball = new FireBall(
+                this.x + this.width/2,
+                this.y + this.height/2,
+                p1X + p1Width/2,
+                p1Y + p1Height/2
+            );
+            fireballs.push(fireball);
+            this.lastShot = now;
+        }
+    }
+
     update() {
+        if (!this.isAlive) return;
+
         // Apply gravity first
         this.addGravity();
         
@@ -242,24 +334,24 @@ class NPC {
         this.checkLimits();
         
         // Random movement
-        const actionRange = 100;
-        const actionFactor = 100;
-        const movementRange = 1;
-        const input = Math.floor(Math.random() * actionRange);
+        const input = Math.floor(Math.random() * 100);
 
-        if (input % actionFactor == 0) {
-            for (let i = 0; i < movementRange; i++) {
+        if (input === 0) {
+            for (let i = 0; i < 1; i++) {
                 this.moveRight();
             }
         }
-        if (input % actionFactor == 1) {
-            for (let i = 0; i < movementRange; i++) {
+        if (input === 1) {
+            for (let i = 0; i < 1; i++) {
                 this.moveLeft();
             }
         }
-        if (input % actionFactor == 3 && this.grounded) {
+        if (input === 3 && this.grounded) {
             this.jump();
         }
+
+        // Try to shoot if it's a fire NPC
+        this.shoot();
     }
 }
 
@@ -457,11 +549,66 @@ function finit(){
 
     // Initialize bullets array
     bullets = [];
+
+    // Initialize fireballs array
+    fireballs = [];
 }
 
+function checkPlayerDeath() {
+    if (p1Health <= 0) {
+        gameOver = true;
+        // Display game over message
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        ctx.fillStyle = "red";
+        ctx.font = "48px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("GAME OVER", canvasWidth/2, canvasHeight/2);
+        
+        ctx.font = "24px Arial";
+        ctx.fillText("Press T to restart", canvasWidth/2, canvasHeight/2 + 40);
+    }
+}
 
-function f2(){
-    setInterval(function(){
+function fReset() {
+    // Reset game state
+    gameOver = false;
+    gameStarted = false;
+    
+    // Reset player
+    p1Health = 100;
+    p1X = 0;
+    p1Y = (canvasHeight/2)-(p1Height/2);
+    p1Look = 0;
+    
+    // Reset NPCs
+    npcs = [
+        new NPC('water', 100, 100),
+        new NPC('fire', 200, 100),
+        new NPC('regular', 300, 100),
+        new NPC('sk', 400, 100)
+    ];
+    
+    // Clear projectiles
+    bullets = [];
+    fireballs = [];
+    
+    // Clear canvas
+    updateSky();
+    drawPlat(plat0X, plat0Y, plat0Width, plat0Height);
+    drawGround();
+    drawP1();
+}
+
+function f2() {
+    if (gameStarted) return; // Prevent multiple game starts
+    gameStarted = true;
+    
+    setInterval(function() {
+        if (gameOver) return; // Stop game loop if game over
+        
         timeCounter++;
         
         // Clear canvas and update sky
@@ -472,57 +619,8 @@ function f2(){
         
         // Update NPCs
         npcs.forEach(npc => {
-            if (!npc.isAlive) return; // Skip dead NPCs
-            
-            // Apply gravity
-            if (!npc.grounded) {
-                npc.y += gravity;
-            }
-            
-            // Check grounding
-            if (npc.y + npc.height >= canvasHeight - groundHeight) {
-                npc.y = canvasHeight - npc.height - groundHeight;
-                npc.grounded = true;
-            } else if (npc.y + npc.height < canvasHeight - groundHeight) {
-                if (npc.x + npc.width > plat0X && npc.x < plat0X + plat0Width && 
-                    npc.y + npc.height > plat0Y && npc.y + npc.height < plat0Y + plat0Height) {
-                    npc.grounded = true;
-                } else {
-                    npc.grounded = false;
-                }
-            }
-            
-            // Random movement
-            const input = Math.floor(Math.random() * 100);
-            if (input === 0) {
-                npc.x += npc.speed;
-                npc.look = 1;
-            }
-            if (input === 1) {
-                npc.x -= npc.speed;
-                npc.look = 2;
-            }
-            if (input === 3 && npc.grounded) {
-                npc.y -= npc.jumpForce;
-                npc.look = 0;
-                npc.grounded = false;
-            }
-            
-            // Check screen limits
-            if (npc.x + npc.width > canvasWidth) {
-                npc.x = canvasWidth - npc.width;
-            }
-            if (npc.x < 0) {
-                npc.x = 0;
-            }
-        });
-        
-        // Draw everything
-        drawPlat(plat0X, plat0Y, plat0Width, plat0Height);
-        drawGround();
-        drawP1();
-        npcs.forEach(npc => {
             if (npc.isAlive) {
+                npc.update();
                 npc.draw();
                 // Draw health bar for each NPC
                 npc.ctx.fillStyle = "red";
@@ -532,6 +630,20 @@ function f2(){
         
         // Update and draw bullets
         bulletControl();
+        
+        // Update and draw fireballs
+        fireballs = fireballs.filter(fireball => {
+            fireball.update();
+            return fireball.exists;
+        });
+        
+        // Draw everything
+        drawPlat(plat0X, plat0Y, plat0Width, plat0Height);
+        drawGround();
+        drawP1();
+        
+        // Check for player death
+        checkPlayerDeath();
         
         // Update UI
         document.getElementById("timeCounter").innerHTML = aPress + sPress + dPress + wPress;
@@ -543,71 +655,72 @@ function f2(){
         document.getElementById("d7").innerHTML = p1Look;
     }, 1000/fps);
 }
-function p1Control(){ 
-	if(wPress==true)
-	{
-	if(p1Crouch==true){
-		p1Crouch=false;
-		p1Y=p1Y+60
-	}else {
-	if(p1Grounded==true){
-		p1Jump();
-		p1Height=40;
-	}
-	else {
-		p1Look=0;
-		p1Height=40;
-	}
-	}
-	}
 
-if(sPress==true){
-	moveP1Down();
-	p1Look=3;
-	p1Height=20;
-	p1Crouch=true;}
+function p1Control() {
+    if (gameOver) return; // Prevent player control if game over
+    
+    if(wPress==true) {
+        if(p1Crouch==true) {
+            p1Crouch=false;
+            p1Y=p1Y+60;
+        } else {
+            if(p1Grounded==true) {
+                p1Jump();
+                p1Height=40;
+            } else {
+                p1Look=0;
+                p1Height=40;
+            }
+        }
+    }
 
-if(aPress==true){
-	if(p1Crouch==false){
-		moveP1Left();
-		p1Look=2;
-		p1Height=40;
-	}else{
-		moveP1Left();
-		p1Look=5;
-		p1Height=20;
-	}
+    if(sPress==true) {
+        moveP1Down();
+        p1Look=3;
+        p1Height=20;
+        p1Crouch=true;
+    }
+
+    if(aPress==true) {
+        if(p1Crouch==false) {
+            moveP1Left();
+            p1Look=2;
+            p1Height=40;
+        } else {
+            moveP1Left();
+            p1Look=5;
+            p1Height=20;
+        }
+    }
+    
+    if(dPress==true) {
+        if(p1Crouch==false) {
+            moveP1Right();
+            p1Look=1;
+            p1Height=40;
+        } else {
+            moveP1Right();
+            p1Look=4;
+            p1Height=20;
+        }
+    }
+    
+    if(kPress==true) {
+        fire();
+    }
+    
+    checkPlayerGrounding();
+    checkPlayerLimits();
+    
+    if(p1Grounded==true) {
+        document.getElementById("info1").innerHTML="grounded";
+    } else {
+        eraseP1();
+        document.getElementById("info1").innerHTML="not grounded";
+        addP1Gravity();
+        drawP1();
+    }
 }
-if(dPress==true){
-	if(p1Crouch==false){
-		moveP1Right();
-		p1Look=1;
-		p1Height=40;
-	}else{
-		moveP1Right();
-		p1Look=4;
-		p1Height=20;
-	}
-}
-if(kPress==true){
-	fire();
-}
-checkPlayerGrounding();
-checkPlayerLimits();
-	if(p1Grounded==true){
-		document.getElementById("info1").innerHTML="grounded";
-	}else{
-		eraseP1();
-		document.getElementById("info1").innerHTML="not grounded";
-		addP1Gravity();
-		drawP1();
-	}
-	//drawP1();
-}
-
-
-
-
 
 function drawGround(){
 
@@ -617,11 +730,7 @@ function drawGround(){
 
 }
 
-
-
-
 //________________________________________________________P1
-
 
 function addP1Gravity(){
 	p1Y=p1Y+gravity;
@@ -648,7 +757,7 @@ function checkPlayerLimits(){
 	}
 }
 function drawP1(){
-	p1=canvas.getContext("2d");
+	p1 = canvas.getContext("2d");
 	if(p1Look==0){
 		p1Image.src = 'pngs/clerk0.png';
 	}  else if(p1Look==1){
@@ -670,6 +779,11 @@ function drawP1(){
 	// Draw health bar
 	p1.fillStyle = "red";
 	p1.fillRect(p1X, p1Y - 10, (p1Width * p1Health) / 100, 5);
+	
+	// Draw health text
+	p1.fillStyle = "white";
+	p1.font = "12px Arial";
+	p1.fillText(`HP: ${p1Health}`, p1X, p1Y - 15);
 }
 function eraseP1(){
 	p1.fillStyle=canvasColor;
@@ -700,10 +814,8 @@ function moveP1Right(){
 	drawP1();
 }
 
-
 //________________________________________________________NPC0
   
-
 function drawnpc0(){
 	npc0=canvas.getContext("2d");
 	if(npc0Look==0){
@@ -829,7 +941,6 @@ function bulletControl(){
     });
 }
 
-
 //________________________________________________________MISC
 
 function updateSky(){
@@ -837,15 +948,6 @@ function updateSky(){
 	sky.fillStyle=canvasColor;
 	sky.fillRect(0,0,canvasWidth,canvasHeight);
 }
-
-function fReset(){
-	document.getElementById("info2").innerHTML="reset";
-	textEraser.fillStyle="black";
-	textEraser.fillRect(goTextX,goTextY-25,630,35);
-	
-}
-
-
 
 window.addEventListener('keypress',function(event){
 var x=event.key;
