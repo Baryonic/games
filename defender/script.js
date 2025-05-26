@@ -104,11 +104,25 @@ class Archery {
     }
 
     draw(ctx) {
-        ctx.fillStyle = "#b8860b";
-        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        if (archeryImg.complete && archeryImg.naturalWidth > 0) {
+            ctx.drawImage(
+                archeryImg,
+                this.x - cameraX,
+                this.y,
+                this.width,
+                this.height
+            );
+        } else {
+            ctx.fillStyle = "#b8860b";
+            ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        }
         ctx.fillStyle = "black";
         ctx.font = "14px Arial";
-        ctx.fillText("Archery", this.x - cameraX + this.width / 2, this.y + this.height / 2 + 5);
+        ctx.fillText(
+            "Archery",
+            this.x - cameraX + this.width / 2,
+            this.y + this.height / 2 + 5
+        );
     }
 }
 
@@ -152,7 +166,7 @@ window.addEventListener('resize', resizeCanvas);
 // Adjust town and enemy spawn positions
 const town = new Town(50, MAP_HEIGHT / 2 - UNIT_SIZE / 2);
 town.hp = 500; // Add HP to town
-Town.prototype.isAlive = function() { return this.hp > 0; };
+Town.prototype.isAlive = function () { return this.hp > 0; };
 
 let archery = null;
 
@@ -449,6 +463,9 @@ enemyUnitImages.soldier.src = "images/soldier_alien.png";
 enemyUnitImages.knight.src = "images/knight_alien.png";
 enemyUnitImages.archer.src = "images/archer_alien.png";
 
+const archeryImg = new Image();
+archeryImg.src = "images/archery.png";
+
 function drawField() {
     if (grassImg.complete && grassImg.naturalWidth > 0) {
         // Draw the visible part of the stretched background
@@ -497,20 +514,17 @@ function drawUnits() {
             ctx.fillStyle = "gray";
             ctx.fillRect(unit.x - cameraX, unit.y, UNIT_SIZE, UNIT_SIZE);
         }
-        ctx.fillStyle = "black";
-        // Draw name
-        ctx.fillText(
-            unit.name,
-            unit.x - cameraX + UNIT_SIZE / 2,
-            unit.y + UNIT_SIZE / 2
-        );
-        // Draw HP below name
-        ctx.fillStyle = "green";
-        ctx.fillText(
-            "HP: " + unit.hp,
-            unit.x - cameraX + UNIT_SIZE / 2,
-            unit.y + UNIT_SIZE / 2 + 16
-        );
+        // Draw HP bar below unit
+        const maxHp = unit instanceof Soldier ? 100 : unit instanceof Archer ? 80 : unit instanceof Cavalry ? 120 : 100;
+        const barWidth = UNIT_SIZE;
+        const barHeight = 6;
+        const hpRatio = Math.max(0, unit.hp / maxHp);
+        ctx.fillStyle = "#444";
+        ctx.fillRect(unit.x - cameraX, unit.y + UNIT_SIZE - 8, barWidth, barHeight);
+        ctx.fillStyle = "limegreen";
+        ctx.fillRect(unit.x - cameraX, unit.y + UNIT_SIZE - 8, barWidth * hpRatio, barHeight);
+        ctx.strokeStyle = "#222";
+        ctx.strokeRect(unit.x - cameraX, unit.y + UNIT_SIZE - 8, barWidth, barHeight);
     }
     ctx.textAlign = "left";
 }
@@ -540,20 +554,17 @@ function drawEnemies() {
             ctx.fillStyle = "red";
             ctx.fillRect(enemy.x - cameraX, enemy.y, UNIT_SIZE, UNIT_SIZE);
         }
-        ctx.fillStyle = "black";
-        // Draw name
-        ctx.fillText(
-            enemy.name,
-            enemy.x - cameraX + UNIT_SIZE / 2,
-            enemy.y + UNIT_SIZE / 2
-        );
-        // Draw HP below name
-        ctx.fillStyle = "green";
-        ctx.fillText(
-            "HP: " + enemy.hp,
-            enemy.x - cameraX + UNIT_SIZE / 2,
-            enemy.y + UNIT_SIZE / 2 + 16
-        );
+        // Draw HP bar below enemy
+        const maxHp = enemy instanceof EnemySoldier ? 100 : enemy instanceof EnemyArcher ? 80 : enemy instanceof EnemyCavalry ? 120 : 100;
+        const barWidth = UNIT_SIZE;
+        const barHeight = 6;
+        const hpRatio = Math.max(0, enemy.hp / maxHp);
+        ctx.fillStyle = "#444";
+        ctx.fillRect(enemy.x - cameraX, enemy.y + UNIT_SIZE - 8, barWidth, barHeight);
+        ctx.fillStyle = "red";
+        ctx.fillRect(enemy.x - cameraX, enemy.y + UNIT_SIZE - 8, barWidth * hpRatio, barHeight);
+        ctx.strokeStyle = "#222";
+        ctx.strokeRect(enemy.x - cameraX, enemy.y + UNIT_SIZE - 8, barWidth, barHeight);
     }
     ctx.textAlign = "left";
 }
@@ -634,7 +645,7 @@ function gameLoop() {
 setInterval(spawnEnemy, enemySpawnInterval);
 gameLoop();
 
-canvas.addEventListener("click", function(e) {
+canvas.addEventListener("click", function (e) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -659,7 +670,7 @@ canvas.addEventListener("click", function(e) {
 });
 
 // Optional: Touch support for mobile
-canvas.addEventListener("touchend", function(e) {
+canvas.addEventListener("touchend", function (e) {
     if (!window.buyButtons) return;
     const rect = canvas.getBoundingClientRect();
     const touch = e.changedTouches[0];
