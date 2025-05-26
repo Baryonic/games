@@ -33,6 +33,7 @@ class Unit extends GameObject {
 class Soldier extends Unit {
     constructor(x, y) {
         super("Soldier", x, y, 100, 20, 10);
+        this.type = "soldier";
     }
 }
 
@@ -41,12 +42,14 @@ class Archer extends Unit {
         super("Archer", x, y, 80, 25, 5);
         this.arrowCooldown = 0;
         this.range = 220; // Set archer's range (in pixels)
+        this.type = "archer";
     }
 }
 
 class Cavalry extends Unit {
     constructor(x, y) {
         super("Cavalry", x, y, 120, 15, 15);
+        this.type = "knight";
     }
 }
 
@@ -82,6 +85,32 @@ class EnemyCavalry extends Enemy {
         this.goldValue = 100;
     }
 }
+class Archery {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = UNIT_SIZE;
+        this.height = UNIT_SIZE;
+        this.spawnTimer = 0;
+        this.active = true;
+    }
+
+    update() {
+        this.spawnTimer++;
+        if (this.spawnTimer >= 120) { // 2 seconds at 60fps
+            town.units.push(new Archer(this.x + this.width, getRandomRowY()));
+            this.spawnTimer = 0;
+        }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = "#b8860b";
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        ctx.fillStyle = "black";
+        ctx.font = "14px Arial";
+        ctx.fillText("Archery", this.x - cameraX + this.width / 2, this.y + this.height / 2 + 5);
+    }
+}
 
 class Town {
     constructor(x, y) {
@@ -92,24 +121,14 @@ class Town {
     }
 
     recruit(unitType) {
-        if (this.gold >= 50) {
-            let unit;
-            switch (unitType) {
-                case 'soldier':
-                    unit = new Soldier(this.x, this.y);
-                    break;
-                case 'archer':
-                    unit = new Archer(this.x, this.y);
-                    break;
-                case 'cavalry':
-                    unit = new Cavalry(this.x, this.y);
-                    break;
-            }
-            if (unit) {
-                this.units.push(unit);
-                this.gold -= 50;
-            }
-        }
+        const costs = { soldier: 50, archer: 70, cavalry: 100 };
+        if (this.gold < costs[unitType]) return;
+        this.gold -= costs[unitType];
+        let unit;
+        if (unitType === "soldier") unit = new Soldier(this.x + UNIT_SIZE, getRandomRowY());
+        if (unitType === "archer") unit = new Archer(this.x + UNIT_SIZE, getRandomRowY());
+        if (unitType === "cavalry") unit = new Cavalry(this.x + UNIT_SIZE, getRandomRowY());
+        this.units.push(unit);
     }
 }
 
@@ -134,6 +153,8 @@ window.addEventListener('resize', resizeCanvas);
 const town = new Town(50, MAP_HEIGHT / 2 - UNIT_SIZE / 2);
 town.hp = 500; // Add HP to town
 Town.prototype.isAlive = function() { return this.hp > 0; };
+
+let archery = null;
 
 const enemyTown = new Town(MAP_WIDTH - 50 - UNIT_SIZE, MAP_HEIGHT / 2 - UNIT_SIZE / 2);
 enemyTown.hp = 500;
@@ -195,18 +216,6 @@ function getRandomRowY() {
     return Math.floor(Math.random() * ROWS) * ROW_HEIGHT + (ROW_HEIGHT - UNIT_SIZE) / 2;
 }
 
-// Modify recruit to spawn in random row
-Town.prototype.recruit = function(type) {
-    const costs = { soldier: 50, archer: 70, cavalry: 100 };
-    if (this.gold < costs[type]) return;
-    this.gold -= costs[type];
-    let unit;
-    if (type === "soldier") unit = new Soldier(this.x + UNIT_SIZE, getRandomRowY());
-    if (type === "archer") unit = new Archer(this.x + UNIT_SIZE, getRandomRowY());
-    if (type === "cavalry") unit = new Cavalry(this.x + UNIT_SIZE, getRandomRowY());
-    this.units.push(unit);
-};
-
 // --- Enemy spawn in random row ---
 function spawnEnemy() {
     const enemyTypes = [EnemySoldier, EnemyArcher, EnemyCavalry];
@@ -217,82 +226,87 @@ function spawnEnemy() {
 
 // --- Implement fighting logic between units ---
 function handleCombat() {
-    // Allied units logic (already present)
+    // Allied units logic
     for (let i = town.units.length - 1; i >= 0; i--) {
         const unit = town.units[i];
-        // Check if unit is at the enemy town
-        if (
-            unit.x + UNIT_SIZE >= enemyTown.x &&
-            Math.abs(unit.y - enemyTown.y) < UNIT_SIZE
-        ) {
+
+        // --- Treat enemy town as a valid enemy target ---
+        // If close enough to enemy town, attack it as if it were a unit
+        const closeToEnemyTown =
+            unit.x + UNIT_SIZE > enemyTown.x && // right edge passes town's left edge
+            unit.x < enemyTown.x + UNIT_SIZE && // left edge before town's right edge
+            Math.abs(unit.y - enemyTown.y) < UNIT_SIZE;
+
+        if (closeToEnemyTown && enemyTown.isAlive()) {
             if (unit instanceof Archer) {
                 // Stop at the edge and shoot at the town
-                unit.x = enemyTown.x - UNIT_SIZE; // Stop right before the town
-                // Only shoot if cooldown is ready
+                unit.x = Math.min(unit.x, enemyTown.x - UNIT_SIZE); // Stop right before the town
                 if (unit.arrowCooldown > 0) {
                     unit.arrowCooldown--;
                     continue;
                 }
                 // Only fire if no arrow already in flight from this archer to the town
-                let alreadyFiring = arrows.some(a => a.active && a.x === unit.x + UNIT_SIZE && a.target === enemyTown);
+                let alreadyFiring = arrows.some(
+                    a => a.active && a.target === enemyTown && a.x === unit.x + UNIT_SIZE
+                );
                 if (!alreadyFiring) {
                     arrows.push(new Arrow(unit.x + UNIT_SIZE, unit.y + UNIT_SIZE / 2, enemyTown, unit.attack));
                     unit.arrowCooldown = 30;
                 }
                 continue;
             } else {
-                // Melee/cavalry attack the town and are removed
-                enemyTown.hp -= unit.attack;
-                town.units.splice(i, 1);
+                // Melee/cavalry attack the town as if it were a unit
+                unit.attackEnemy(enemyTown);
+                if (enemyTown.isAlive()) {
+                    // Town "fights back" (optional: adjust attack/defense as desired)
+                    enemyTown.attackEnemy(unit);
+                }
+                // Remove unit if dead
+                if (!unit.isAlive()) {
+                    town.units.splice(i, 1);
+                }
                 continue;
             }
         }
 
         if (unit instanceof Archer) {
-            // Reduce cooldown
             if (unit.arrowCooldown > 0) {
                 unit.arrowCooldown--;
                 continue;
             }
-            // Find closest enemy in same row and within range
             let targets = enemies.filter(
                 enemy =>
-                    Math.abs(unit.y - enemy.y) < ROW_HEIGHT * 1.5 && // Allow adjacent rows
+                    Math.abs(unit.y - enemy.y) < ROW_HEIGHT * 1.5 &&
                     enemy.isAlive() &&
                     Math.abs(unit.x - enemy.x) <= unit.range
             );
             if (targets.length > 0) {
-                // Closest enemy by x distance
                 let target = targets.reduce((a, b) => Math.abs(unit.x - a.x) < Math.abs(unit.x - b.x) ? a : b);
-                // Only fire if no arrow already in flight from this archer to this target
-                let alreadyFiring = arrows.some(a => a.active && a.x === unit.x + UNIT_SIZE && a.y === unit.y && a.target === target);
+                let alreadyFiring = arrows.some(
+                    a => a.active && a.x === unit.x + UNIT_SIZE && a.y === unit.y && a.target === target
+                );
                 if (!alreadyFiring) {
                     arrows.push(new Arrow(unit.x + UNIT_SIZE, unit.y + UNIT_SIZE / 2, target, unit.attack));
-                    unit.arrowCooldown = 30; // Fire every 30 frames (~0.5s at 60fps)
+                    unit.arrowCooldown = 30;
                 }
             } else {
-                // No enemy in range: advance
                 unit.move();
             }
         } else {
-            // Melee units attack if close
             let target = enemies.find(
                 enemy =>
                     Math.abs(unit.y - enemy.y) < ROW_HEIGHT * 1.5 &&
                     Math.abs(unit.x - enemy.x) < UNIT_SIZE * 1.5
             );
             if (target) {
-                // If not in the same row, move vertically toward the enemy
                 if (Math.abs(unit.y - target.y) >= ROW_HEIGHT / 2) {
                     if (unit.y < target.y) unit.y += Math.min(4, target.y - unit.y);
                     else if (unit.y > target.y) unit.y -= Math.min(4, unit.y - target.y);
                 } else {
-                    // In the same row, attack
                     unit.attackEnemy(target);
                     if (target.isAlive()) target.attackEnemy(unit);
                 }
             } else {
-                // No enemy close, move forward
                 unit.move();
             }
         }
@@ -316,24 +330,22 @@ function handleCombat() {
                 enemy.arrowCooldown--;
                 continue;
             }
-            // Find closest allied unit in same row and within range
             let targets = town.units.filter(
                 unit =>
-                    Math.abs(unit.y - enemy.y) < ROW_HEIGHT * 1.5 && // Allow adjacent rows
+                    Math.abs(unit.y - enemy.y) < ROW_HEIGHT * 1.5 &&
                     unit.isAlive() &&
                     Math.abs(unit.x - enemy.x) <= enemy.range
             );
             if (targets.length > 0) {
-                // Closest unit by x distance
                 let target = targets.reduce((a, b) => Math.abs(enemy.x - a.x) < Math.abs(enemy.x - b.x) ? a : b);
-                // Only fire if no arrow already in flight from this archer to this target
-                let alreadyFiring = arrows.some(a => a.active && a.x === enemy.x && a.y === enemy.y + UNIT_SIZE / 2 && a.target === target && a.isEnemy);
+                let alreadyFiring = arrows.some(
+                    a => a.active && a.x === enemy.x && a.y === enemy.y + UNIT_SIZE / 2 && a.target === target && a.isEnemy
+                );
                 if (!alreadyFiring) {
                     arrows.push(new Arrow(enemy.x, enemy.y + UNIT_SIZE / 2, target, enemy.attack, true));
                     enemy.arrowCooldown = 30;
                 }
             } else {
-                // No unit in range: advance
                 enemy.move();
             }
         }
@@ -417,6 +429,26 @@ function drawArrows() {
 const grassImg = new Image();
 grassImg.src = "images/landscape01.png";
 
+// Preload unit images
+const unitImages = {
+    soldier: new Image(),
+    knight: new Image(),
+    archer: new Image()
+};
+unitImages.soldier.src = "images/soldier.png";
+unitImages.knight.src = "images/knight.png";
+unitImages.archer.src = "images/archer.png";
+
+// Preload enemy unit images
+const enemyUnitImages = {
+    soldier: new Image(),
+    knight: new Image(),
+    archer: new Image()
+};
+enemyUnitImages.soldier.src = "images/soldier_alien.png";
+enemyUnitImages.knight.src = "images/knight_alien.png";
+enemyUnitImages.archer.src = "images/archer_alien.png";
+
 function drawField() {
     if (grassImg.complete && grassImg.naturalWidth > 0) {
         // Draw the visible part of the stretched background
@@ -455,8 +487,16 @@ function drawUnits() {
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
     for (const unit of town.units) {
-        ctx.fillStyle = unit instanceof Archer ? "orange" : unit instanceof Cavalry ? "blue" : "gray";
-        ctx.fillRect(unit.x - cameraX, unit.y, UNIT_SIZE, UNIT_SIZE);
+        let img = null;
+        if (unit.type === "soldier") img = unitImages.soldier;
+        else if (unit.type === "archer") img = unitImages.archer;
+        else if (unit.type === "knight") img = unitImages.knight;
+        if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, unit.x - cameraX, unit.y, UNIT_SIZE, UNIT_SIZE);
+        } else {
+            ctx.fillStyle = "gray";
+            ctx.fillRect(unit.x - cameraX, unit.y, UNIT_SIZE, UNIT_SIZE);
+        }
         ctx.fillStyle = "black";
         // Draw name
         ctx.fillText(
@@ -479,8 +519,27 @@ function drawEnemies() {
     ctx.font = "14px Arial";
     ctx.textAlign = "center";
     for (const enemy of enemies) {
-        ctx.fillStyle = "red";
-        ctx.fillRect(enemy.x - cameraX, enemy.y, UNIT_SIZE, UNIT_SIZE);
+        let img = null;
+        if (enemy instanceof EnemySoldier) img = enemyUnitImages.soldier;
+        else if (enemy instanceof EnemyArcher) img = enemyUnitImages.archer;
+        else if (enemy instanceof EnemyCavalry) img = enemyUnitImages.knight;
+        if (img && img.complete && img.naturalWidth > 0) {
+            // Draw mirrored (flipped horizontally) for left-moving units
+            ctx.save();
+            ctx.translate(enemy.x - cameraX + UNIT_SIZE / 2, enemy.y + UNIT_SIZE / 2);
+            ctx.scale(-1, 1); // Mirror horizontally
+            ctx.drawImage(
+                img,
+                -UNIT_SIZE / 2,
+                -UNIT_SIZE / 2,
+                UNIT_SIZE,
+                UNIT_SIZE
+            );
+            ctx.restore();
+        } else {
+            ctx.fillStyle = "red";
+            ctx.fillRect(enemy.x - cameraX, enemy.y, UNIT_SIZE, UNIT_SIZE);
+        }
         ctx.fillStyle = "black";
         // Draw name
         ctx.fillText(
@@ -509,22 +568,22 @@ function drawBuyMenu() {
     const btns = [
         { label: "Soldier (50)", type: "soldier" },
         { label: "Archer (70)", type: "archer" },
-        { label: "Cavalry (100)", type: "cavalry" }
+        { label: "Cavalry (100)", type: "cavalry" },
+        { label: "Archery (700)", type: "archery_building" }
     ];
-    const btnWidth = 120, btnHeight = 40, spacing = 10;
-    const y = canvas.height - btnHeight - 10;
-    let x = 20;
+    const btnWidth = 160, btnHeight = 60, spacing = 20;
+    const y = canvas.height - btnHeight - 20;
+    let x = 30;
 
-    // Store button hitboxes for click detection
     window.buyButtons = [];
 
-    ctx.font = "16px Arial";
+    ctx.font = "20px Arial";
     ctx.textAlign = "center";
     for (const btn of btns) {
         ctx.fillStyle = "#333";
         ctx.fillRect(x, y, btnWidth, btnHeight);
         ctx.fillStyle = "white";
-        ctx.fillText(btn.label, x + btnWidth / 2, y + btnHeight / 2 + 6);
+        ctx.fillText(btn.label, x + btnWidth / 2, y + btnHeight / 2 + 8);
         window.buyButtons.push({ x, y, w: btnWidth, h: btnHeight, type: btn.type });
         x += btnWidth + spacing;
     }
@@ -547,7 +606,11 @@ function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawField();
     drawTown();
-    drawEnemyTown(); // <-- Add this line
+    drawEnemyTown();
+    if (archery) {
+        archery.update();
+        archery.draw(ctx);
+    }
     drawUnits();
     drawEnemies();
     drawGold();
@@ -581,7 +644,14 @@ canvas.addEventListener("click", function(e) {
                 mx >= btn.x && mx <= btn.x + btn.w &&
                 my >= btn.y && my <= btn.y + btn.h
             ) {
-                town.recruit(btn.type);
+                if (btn.type === "archery_building") {
+                    if (!archery && town.gold >= 700) {
+                        town.gold -= 700;
+                        archery = new Archery(town.x, town.y + UNIT_SIZE + 10);
+                    }
+                } else {
+                    town.recruit(btn.type);
+                }
                 break;
             }
         }
@@ -600,7 +670,14 @@ canvas.addEventListener("touchend", function(e) {
             mx >= btn.x && mx <= btn.x + btn.w &&
             my >= btn.y && my <= btn.y + btn.h
         ) {
-            town.recruit(btn.type);
+            if (btn.type === "archery_building") {
+                if (!archery && town.gold >= 700) {
+                    town.gold -= 700;
+                    archery = new Archery(town.x, town.y + UNIT_SIZE + 10);
+                }
+            } else {
+                town.recruit(btn.type);
+            }
             break;
         }
     }
