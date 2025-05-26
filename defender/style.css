@@ -1,19 +1,15 @@
 body {
     margin: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background-color: #87CEEB; /* Light blue background for the sky */
+    background: #222;
+    overflow: hidden;
 }
 
 canvas {
-    border: 2px solid #000; /* Black border around the canvas */
-    background-color: #32CD32; /* Green background for the field */
-    width: 100%; /* Make canvas responsive */
-    height: auto; /* Maintain aspect ratio */
-    max-width: 600px; /* Maximum width for the canvas */
-    max-height: 400px; /* Maximum height for the canvas */
+    display: block;
+    width: 100vw;
+    height: 80vh;
+    touch-action: manipulation;
+    background: #228B22;
 }
 
 .game-object {
